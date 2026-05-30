@@ -20,9 +20,14 @@ alerts) and an optional internal LLM step are explicitly deferred.
 
 ## Tech choices
 
-- **Python** — both available data sources (`tubescrape`, `yt-dlp`) are Python/CLI.
-- **tubescrape** for search + channel scan + view/like/comment metrics (no API
-  key/OAuth). `yt-dlp` available as a fallback for per-video JSON if needed.
+- **Python** — both data sources (`tubescrape`, `yt-dlp`) are Python/CLI.
+- **Two-tier collection.** tubescrape `search()` / `get_channel_videos()` only
+  return `title, duration, view_count, published_text (relative), channel, url`
+  — **no likes, comments, or exact publish date.** So discovery is cheap via
+  tubescrape, then each kept Short is **enriched** with
+  `yt-dlp --dump-json <url>` for `like_count`, `comment_count`, exact
+  `upload_date`, and precise `duration`. We filter to Shorts (`duration <= 60s`)
+  *before* enriching so we never spend a yt-dlp call on a long video.
 - **SQLite** as the source of truth — required to "track over time" (velocity,
   growth). Repeated runs snapshot metrics; reports derive from snapshots.
 - **Rich** for the terminal table; CSV + Markdown exporters render from the DB.
@@ -78,12 +83,16 @@ Each module has one job and a clean interface; pure logic is isolated from I/O.
   `video_id, title, channel, channel_id, duration_sec, published_at, url,
   views, likes, comments`.
 
-- **`sources.py`** — discovery; the **only** module touching tubescrape/yt-dlp.
+- **`sources.py`** — discovery + enrichment; the **only** module touching
+  tubescrape/yt-dlp.
   - `search_keyword(keyword: str, max_results: int = 50) -> list[Video]`
   - `scan_channel(channel: str, max_results: int = 50) -> list[Video]`
-  - Both filter to Shorts (`duration_sec <= 60`). Channel input accepts
-    `@handle` or channel URL. Isolating the scraping dependency here means a
-    tubescrape break or a swap to yt-dlp touches only this file.
+  - Internal helpers: `_parse_duration(text) -> int` (tubescrape `"1:02"` →
+    seconds), `_enrich(url) -> dict` (runs `yt-dlp --dump-json`, returns
+    `like_count, comment_count, upload_date, duration, view_count`).
+  - Flow per query: tubescrape discover → keep `duration_sec <= 60` → `_enrich`
+    each kept item → build `Video`. Channel input accepts `@handle` or URL.
+    Isolating both libraries here means a break or swap touches only this file.
 
 - **`store.py`** — SQLite; owns schema + all SQL.
   - `connect(db_path) -> Connection` (creates schema `IF NOT EXISTS`)
@@ -160,6 +169,9 @@ Proportional to a personal research tool.
 - **Scraping failures** (tubescrape down, rate-limited, video unavailable):
   `sources` catches per-item, logs a warning, skips that item. A whole-search
   failure exits non-zero with a clear message.
+- **Enrichment failures** (`yt-dlp` errors on one video, comments disabled →
+  null `comment_count`): treat missing counts as `0`, skip a video only if
+  `yt-dlp` fails entirely for it; the rest of the run continues.
 - **Transient network**: one retry with short backoff in `sources`; no retry
   framework.
 - **Missing/zero data**: metrics guard divide-by-zero → `0.0`; the row still
@@ -175,8 +187,10 @@ Proportional to a personal research tool.
 - **`coins.py`** — `extract_coins` tags known tickers/names, ignores noise.
 - **`render.py`** — CSV/Markdown asserted against expected strings; terminal
   table smoke-tested.
-- **`sources.py`** — against **saved fixture payloads** (a captured tubescrape
-  response), not live network — deterministic and offline.
+- **`sources.py`** — `_parse_duration` unit-tested directly. Discovery/enrichment
+  tested against **saved fixture payloads** (a captured tubescrape result list +
+  a captured `yt-dlp --dump-json` blob) with the tubescrape client and the
+  `yt-dlp` subprocess call mocked — deterministic and offline.
 - **`cli.py`** — one integration test per subcommand: fixtures → temp DB →
   assert output (including `brief --format json` shape).
 
