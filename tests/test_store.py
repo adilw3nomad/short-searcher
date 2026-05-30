@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from short_searcher import store
 
 
@@ -34,7 +34,6 @@ def test_previous_views_empty_when_single_snapshot(sample_video):
 
 
 def test_latest_rows_since_filters_by_publish_date(sample_video):
-    from datetime import date
     conn = store.connect(":memory:")
     t = datetime(2026, 5, 30, 12, 0, 0)
     store.upsert_videos(conn, [

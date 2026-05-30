@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from .models import Video
@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS videos (
 CREATE TABLE IF NOT EXISTS snapshots (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     video_id TEXT REFERENCES videos(video_id),
-    captured_at TEXT, views INTEGER, likes INTEGER, comments INTEGER
+    captured_at TEXT NOT NULL, views INTEGER NOT NULL,
+    likes INTEGER NOT NULL, comments INTEGER NOT NULL
 );
 """
 
@@ -24,6 +25,7 @@ def connect(db_path: str | Path) -> sqlite3.Connection:
         Path(db_path).expanduser().parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(_SCHEMA)
     return conn
 
@@ -66,7 +68,7 @@ def latest_rows(conn: sqlite3.Connection, since_days: int | None = None,
     params: list = []
     if since_days is not None:
         now = now or date.today()
-        cutoff = now.fromordinal(now.toordinal() - since_days).isoformat()
+        cutoff = (now - timedelta(days=since_days)).isoformat()
         sql += " AND v.published_at >= ?"
         params.append(cutoff)
     return [dict(r) for r in conn.execute(sql, params)]
