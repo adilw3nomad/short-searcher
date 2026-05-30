@@ -131,3 +131,34 @@ This is a living README. If you have ideas, edit this file and build the tool. T
 ## License
 
 MIT
+
+## For Mercury — the `brief` contract
+
+Run `short-searcher brief --format json` and parse this shape:
+
+```json
+{
+  "generated_at": "2026-05-30",
+  "window_days": 7,
+  "coins": [
+    {
+      "coin": "XRP",
+      "name": "Ripple",
+      "short_count": 12,
+      "total_views": 1850000,
+      "median_views": 90000,
+      "median_engagement": 0.062,
+      "median_recent_velocity": 410.0,
+      "top_shorts": [
+        {"title": "3 reasons XRP is about to explode", "url": "https://...",
+         "views": 142503, "engagement": 0.082, "recent_velocity": 980.0}
+      ]
+    }
+  ]
+}
+```
+
+Coins are sorted by `median_recent_velocity` (fastest-growing first). Use the
+verbatim `top_shorts[].title` values to infer working hooks; use `short_count`
+as a saturation signal (many shorts = crowded). short-searcher never writes HADES
+files — pick a coin/angle from this brief, then author `coins/<coin>.yaml` yourself.
