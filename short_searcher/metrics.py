@@ -18,7 +18,8 @@ def lifetime_velocity(views: int, published_at: date, now: date | None = None) -
 def recent_velocity(curr_views: int, prev_views: int | None, hours: float) -> float:
     if prev_views is None or hours <= 0:
         return 0.0
-    return (curr_views - prev_views) / hours
+    # Clamp to 0: a view-count dip is not negative growth for ranking purposes.
+    return max(0.0, (curr_views - prev_views) / hours)
 
 
 def composite_scores(rows: list[tuple[float, float, float]]) -> list[float]:

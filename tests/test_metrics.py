@@ -30,6 +30,11 @@ def test_recent_velocity_no_prior_is_zero():
     assert metrics.recent_velocity(5200, None, 24.0) == 0.0
 
 
+def test_recent_velocity_negative_clamped_to_zero():
+    # a view-count dip should not produce negative growth
+    assert metrics.recent_velocity(3000, 4000, 24.0) == 0.0
+
+
 def test_composite_scores_normalizes_and_weights():
     rows = [
         (100.0, 0.10, 1000.0),   # best on every axis -> 1.0
