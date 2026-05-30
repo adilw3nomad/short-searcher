@@ -31,6 +31,29 @@ def test_report_prints_table(tmp_path, capsys):
     assert "XRP explodes" in capsys.readouterr().out
 
 
+def test_scan_collects_into_db(tmp_path, capsys):
+    db = tmp_path / "data.db"
+    code = cli.main(["scan", "@AltDaily", "--db", str(db)],
+                    scan_fn=lambda ch, max_results: [_fake_video(vid="s1")])
+    assert code == 0
+    assert "saved" in capsys.readouterr().out.lower()
+    conn = store.connect(str(db))
+    assert len(store.latest_rows(conn)) == 1
+
+
+def test_report_export_csv_writes_file(tmp_path, capsys):
+    db = tmp_path / "data.db"
+    out = tmp_path / "out.csv"
+    cli.main(["search", "xrp", "--db", str(db)],
+             search_fn=lambda kw, max_results: [_fake_video()])
+    capsys.readouterr()
+    code = cli.main(["report", "--db", str(db), "--export", "csv", "--out", str(out)])
+    assert code == 0
+    assert out.exists()
+    assert "XRP explodes" in out.read_text()
+    assert "Exported CSV" in capsys.readouterr().out
+
+
 def test_brief_json_shape(tmp_path, capsys):
     db = tmp_path / "data.db"
     cli.main(["search", "xrp", "--db", str(db)],

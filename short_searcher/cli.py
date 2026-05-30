@@ -63,9 +63,13 @@ def main(argv=None, search_fn=None, scan_fn=None) -> int:
                                          limit=args.limit)
         render.to_terminal(rows)
         if args.export == "csv":
-            render.to_csv(rows, args.out or "shorts.csv")
+            path = args.out or "shorts.csv"
+            render.to_csv(rows, path)
+            print(f"Exported CSV to {path}")
         elif args.export == "md":
-            render.to_markdown(rows, args.out or "shorts.md")
+            path = args.out or "shorts.md"
+            render.to_markdown(rows, path)
+            print(f"Exported Markdown to {path}")
         return 0
 
     if args.cmd == "brief":
@@ -77,7 +81,7 @@ def main(argv=None, search_fn=None, scan_fn=None) -> int:
             print(render.brief_to_markdown(brief))
         return 0
 
-    return 1
+    return 1  # unreachable: subparsers is required, but a defensive default
 
 
 if __name__ == "__main__":  # pragma: no cover
