@@ -24,7 +24,7 @@ def test_second_run_appends_snapshot_not_video(sample_video):
     assert rows[0]["views"] == 1500     # latest snapshot wins
 
     prev = store.previous_views(conn)
-    assert prev["abc123"] == 1000       # prior snapshot available
+    assert prev["abc123"][0] == 1000       # prior snapshot views
 
 
 def test_previous_views_empty_when_single_snapshot(sample_video):

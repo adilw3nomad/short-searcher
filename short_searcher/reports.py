@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from statistics import median
 
 from . import metrics, store
@@ -18,10 +18,14 @@ def _enrich_rows(conn, since_days=None, now=None) -> list[dict]:
     prev = store.previous_views(conn)
     for r in rows:
         r["published_at"] = date.fromisoformat(r["published_at"])
-        # The gap between the latest and previous snapshot is not tracked yet,
-        # so use a 24h default window when a previous snapshot exists.
-        prev_views = prev.get(r["video_id"])
-        gap_hours = 24.0 if prev_views is not None else 0.0
+        # Real elapsed time between this video's two most recent snapshots.
+        prev_entry = prev.get(r["video_id"])
+        if prev_entry is not None:
+            prev_views, prev_captured = prev_entry
+            gap_hours = (datetime.fromisoformat(r["captured_at"])
+                         - datetime.fromisoformat(prev_captured)).total_seconds() / 3600
+        else:
+            prev_views, gap_hours = None, 0.0
         r["engagement"] = metrics.engagement_rate(r["views"], r["likes"], r["comments"])
         r["lifetime_velocity"] = metrics.lifetime_velocity(r["views"], r["published_at"], now)
         r["recent_velocity"] = metrics.recent_velocity(r["views"], prev_views, gap_hours)

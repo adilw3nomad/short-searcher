@@ -74,12 +74,12 @@ def latest_rows(conn: sqlite3.Connection, since_days: int | None = None,
     return [dict(r) for r in conn.execute(sql, params)]
 
 
-def previous_views(conn: sqlite3.Connection) -> dict[str, int]:
+def previous_views(conn: sqlite3.Connection) -> dict[str, tuple[int, str]]:
     sql = """
-        SELECT video_id, views FROM snapshots s
+        SELECT video_id, views, captured_at FROM snapshots s
         WHERE id = (
             SELECT id FROM snapshots s2 WHERE s2.video_id = s.video_id
             ORDER BY captured_at DESC, id DESC LIMIT 1 OFFSET 1
         )
     """
-    return {r["video_id"]: r["views"] for r in conn.execute(sql)}
+    return {r["video_id"]: (r["views"], r["captured_at"]) for r in conn.execute(sql)}

@@ -69,6 +69,18 @@ def test_build_report_rows_composite_ranks_by_blended_score(sample_video):
     assert rows[0]["video_id"] == "fast"
 
 
+def test_recent_velocity_uses_real_gap_not_24h(sample_video):
+    conn = store.connect(":memory:")
+    t1 = datetime(2026, 5, 28, 12, 0, 0)
+    t2 = datetime(2026, 5, 30, 12, 0, 0)   # +48h
+    store.upsert_videos(conn, [sample_video(video_id="a", title="XRP explodes", views=1000)],
+                        captured_at=t1)
+    store.upsert_videos(conn, [sample_video(video_id="a", title="XRP explodes", views=3400)],
+                        captured_at=t2)
+    rows = reports.build_report_rows(conn, sort="velocity", now=date(2026, 5, 30))
+    assert rows[0]["recent_velocity"] == 50.0   # +2400 / 48h, NOT 100.0
+
+
 def test_build_brief_medians_across_multiple_shorts(sample_video):
     conn = store.connect(":memory:")
     t = datetime(2026, 5, 30, 12, 0, 0)
