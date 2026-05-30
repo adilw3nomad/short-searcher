@@ -71,7 +71,8 @@ comments    INTEGER
 
 - Engagement rate = `(likes + comments) / views` from the latest snapshot.
 - Lifetime velocity = `views / age_days` (age from `published_at`).
-- Recent velocity = `Δviews / Δhours` between a video's two most-recent snapshots.
+- Recent velocity = `Δviews / Δhours` using the **real elapsed time** between a
+  video's two most-recent snapshots (`captured_at` delta), not a fixed window.
 - A `search_runs` table is intentionally omitted (YAGNI) — `first_seen_at` +
   snapshots already capture discovery history.
 
@@ -94,24 +95,31 @@ Each module has one job and a clean interface; pure logic is isolated from I/O.
     each kept item → build `Video`. Channel input accepts `@handle` or URL.
     Isolating both libraries here means a break or swap touches only this file.
 
-- **`store.py`** — SQLite; owns schema + all SQL.
-  - `connect(db_path) -> Connection` (creates schema `IF NOT EXISTS`)
-  - `upsert_videos(conn, videos)` — upserts `videos`, appends a `snapshots` row
-    stamped now
-  - `latest_snapshots(conn, filters) -> list[Row]`
-  - `velocity_rows(conn) -> list[Row]` — joins the two most-recent snapshots per
-    video
+- **`store.py`** — SQLite; owns schema + all SQL. (As shipped.)
+  - `connect(db_path) -> Connection` (creates schema `IF NOT EXISTS`, enables FK)
+  - `upsert_videos(conn, videos, captured_at=None)` — upserts `videos`, appends a
+    `snapshots` row stamped `captured_at`
+  - `latest_rows(conn, since_days=None, now=None) -> list[dict]` — latest snapshot
+    per video joined to video fields, optional publish-date window
+  - `previous_views(conn) -> dict[video_id, (views, captured_at)]` — the
+    second-most-recent snapshot per video, used to derive the real time gap
 
 - **`metrics.py`** — pure functions, zero I/O (most-tested module):
-  `engagement_rate(v)`, `lifetime_velocity(v)`, `recent_velocity(curr, prev)`,
-  `composite(...)`. All guard divide-by-zero → `0.0`.
+  `engagement_rate(views, likes, comments)`, `lifetime_velocity(views, published_at,
+  now)`, `recent_velocity(curr, prev, hours)`, `composite_scores(triples)`. All
+  guard divide-by-zero → `0.0`; `recent_velocity` also clamps negatives to `0.0`.
 
 - **`coins.py`** — ticker→name dictionary (BTC→Bitcoin, XRP→Ripple,
   LUNC→Terra Luna Classic, …) + `extract_coins(title, description) -> list[str]`.
   Turns "videos" into "which coins/topics are winning" — the question Mercury asks.
 
+- **`reports.py`** — aggregation glue (added during planning): `build_report_rows`
+  (store + metrics → ranked rows) and `build_brief` (per-coin summary for Mercury).
+  Keeps this logic out of `cli.py` so it is unit-testable.
+
 - **`render.py`** — `to_terminal(rows)` (Rich), `to_csv(rows, path)`,
-  `to_markdown(rows, path)`. All consume the same row dicts.
+  `to_markdown(rows, path)`, `brief_to_markdown(brief)`. All consume the same
+  row/brief dicts.
 
 - **`cli.py`** — argparse wiring for the subcommands.
 
