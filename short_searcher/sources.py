@@ -10,7 +10,7 @@ log = logging.getLogger("short_searcher.sources")
 SHORT_MAX_SEC = 60
 
 
-def _parse_duration(text: str) -> int:
+def _parse_duration(text: int | str) -> int:
     parts = [int(p) for p in str(text).split(":")]
     seconds = 0
     for p in parts:
@@ -21,7 +21,7 @@ def _parse_duration(text: str) -> int:
 def _enrich(url: str) -> dict:
     out = subprocess.run(
         ["yt-dlp", "--dump-json", "--no-warnings", url],
-        capture_output=True, text=True, check=True,
+        capture_output=True, text=True, check=True, timeout=60,
     )
     return json.loads(out.stdout)
 
@@ -34,12 +34,12 @@ def _default_client():  # pragma: no cover - thin wrapper over the library
 def _collect(results, enrich: Callable[[str], dict]) -> list[Video]:
     videos: list[Video] = []
     for r in results:
-        if _parse_duration(r.duration) > SHORT_MAX_SEC:
-            continue
         try:
+            if _parse_duration(r.duration) > SHORT_MAX_SEC:
+                continue
             meta = enrich(r.url)
         except Exception as exc:  # noqa: BLE001 - skip the bad video, keep going
-            log.warning("enrich failed for %s: %s", r.url, exc)
+            log.warning("skipping %s: %s", getattr(r, "url", "?"), exc)
             continue
         videos.append(Video(
             video_id=meta["id"],

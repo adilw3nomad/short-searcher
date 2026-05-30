@@ -30,6 +30,7 @@ class _FakeSearchResponse:
 class _FakeYouTube:
     def __init__(self, videos):
         self._videos = videos
+        self.called = None
 
     def __enter__(self):
         return self
@@ -38,9 +39,11 @@ class _FakeYouTube:
         return False
 
     def search(self, query, max_results=50):
+        self.called = "search"
         return _FakeSearchResponse(self._videos)
 
     def get_channel_videos(self, handle, max_results=50):
+        self.called = "channel"
         return _FakeSearchResponse(self._videos)
 
 
@@ -68,16 +71,29 @@ def test_search_keyword_filters_shorts_and_enriches(enrich_from_fixture):
     assert v.likes == 80
     assert v.comments == 20
     assert v.published_at == date(2026, 5, 20)
+    assert v.views == 1000
 
 
 def test_scan_channel_uses_channel_endpoint(enrich_from_fixture):
     results = [_FakeResult("XRP is about to explode", "42",
                            "https://youtube.com/shorts/abc123")]
+    yt = _FakeYouTube(results)
     videos = sources.scan_channel(
-        "@AltDaily", client_factory=lambda: _FakeYouTube(results),
-        enrich=enrich_from_fixture)
+        "@AltDaily", client_factory=lambda: yt, enrich=enrich_from_fixture)
     assert len(videos) == 1
     assert videos[0].channel == "AltDaily"
+    assert yt.called == "channel"
+
+
+def test_unparseable_duration_skipped(enrich_from_fixture):
+    bad = _FakeResult("weird", "N/A", "https://youtube.com/shorts/bad")
+    good = _FakeResult("XRP is about to explode", "42",
+                       "https://youtube.com/shorts/abc123")
+    videos = sources.search_keyword(
+        "xrp", client_factory=lambda: _FakeYouTube([bad, good]),
+        enrich=enrich_from_fixture)
+    assert len(videos) == 1
+    assert videos[0].video_id == "abc123"
 
 
 def test_enrich_failure_skips_one_video():
