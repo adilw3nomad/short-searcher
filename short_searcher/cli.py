@@ -51,8 +51,12 @@ def main(argv=None, search_fn=None, scan_fn=None) -> int:
         fetch = search_fn if args.cmd == "search" else scan_fn
         terms = args.keywords if args.cmd == "search" else args.channels
         all_videos = []
-        for term in terms:
-            all_videos.extend(fetch(term, max_results=args.max))
+        try:
+            for term in terms:
+                all_videos.extend(fetch(term, max_results=args.max))
+        except Exception as exc:  # noqa: BLE001 - surface a clean error, not a traceback
+            print(f"error: failed to fetch from source: {exc}", file=sys.stderr)
+            return 1
         store.upsert_videos(conn, all_videos)
         print(f"{len(all_videos)} shorts collected, snapshots saved.")
         return 0

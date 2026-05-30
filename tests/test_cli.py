@@ -54,6 +54,17 @@ def test_report_export_csv_writes_file(tmp_path, capsys):
     assert "Exported CSV" in capsys.readouterr().out
 
 
+def test_search_source_failure_returns_nonzero(tmp_path, capsys):
+    db = tmp_path / "data.db"
+
+    def boom(kw, max_results):
+        raise RuntimeError("tubescrape down")
+
+    code = cli.main(["search", "xrp", "--db", str(db)], search_fn=boom)
+    assert code == 1
+    assert "error" in capsys.readouterr().err.lower()
+
+
 def test_brief_json_shape(tmp_path, capsys):
     db = tmp_path / "data.db"
     cli.main(["search", "xrp", "--db", str(db)],
