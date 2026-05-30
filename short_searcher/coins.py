@@ -26,7 +26,7 @@ def extract_coins(title: str, description: str) -> list[str]:
     text = f"{title} {description}"
     found: set[str] = set()
     for ticker in COIN_MAP:
-        if re.search(rf"\b{re.escape(ticker)}\b", text, re.IGNORECASE):
+        if re.search(rf"\b{re.escape(ticker)}\b", text):  # case-sensitive: tickers are uppercase
             found.add(ticker)
     for name, ticker in _NAME_TO_TICKER.items():
         if re.search(rf"\b{re.escape(name)}\b", text, re.IGNORECASE):

@@ -23,5 +23,10 @@ def test_no_false_positive_substring():
     assert coins.extract_coins("this is a scam warning", "") == []
 
 
-def test_name_resolves_to_ticker():
-    assert coins.COIN_MAP["LUNC"] == "Terra Luna Classic"
+def test_lowercase_common_word_not_matched_as_ticker():
+    # "link in bio" must not match the LINK ticker
+    assert coins.extract_coins("link in bio", "") == []
+
+
+def test_multiword_name_matches():
+    assert coins.extract_coins("Terra Luna Classic is dead", "") == ["LUNC"]
